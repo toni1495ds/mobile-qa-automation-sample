@@ -35,9 +35,3 @@ maestro test -e API_URL=http://10.0.2.2:3333 mobile/
 ## CI
 
 The API tests run on every PR with GitHub Actions. The Maestro job is commented until we have an app build.
-
-## Next steps
-
-- Agree testIDs with the devs
-- Run Maestro in CI (Android first, iOS before releases)
-- Add more regression: permissions, offline, Perfect Week, time zones
