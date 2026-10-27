@@ -1,12 +1,10 @@
-// Small fake backend so the API tests can run without a real environment.
-// Rules are my assumptions based on how the app works publicly:
-// ~1 coin per 100 steps, steps converted on the same day, 20k steps daily limit.
+// Fake API for the tests. Rules are my guesses:
+// 1 coin per 100 steps, only today's steps, max 20k steps a day.
 
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { randomUUID } from 'node:crypto';
 
-const PORT = Number(process.env.MOCK_PORT ?? 3333);
-const STEPS_PER_COIN = 100;
+const PORT = 3333;
 const DAILY_LIMIT = 20_000;
 
 type User = { id: string; email: string; password: string; coins: number; steps: Record<string, number>; converted: Record<string, number> };
@@ -27,71 +25,58 @@ function send(res: ServerResponse, status: number, body: unknown) {
   res.end(JSON.stringify(body));
 }
 
-const error = (code: string) => ({ error: code });
-
-async function readBody(req: IncomingMessage): Promise<any> {
+async function readBody(req: IncomingMessage) {
   let raw = '';
   for await (const chunk of req) raw += chunk;
-  try {
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
+  return raw ? JSON.parse(raw) : {};
 }
 
-function getUser(req: IncomingMessage): User | undefined {
-  const token = (req.headers.authorization ?? '').replace('Bearer ', '');
-  return users.get(tokens.get(token) ?? '');
-}
+createServer(async (req, res) => {
+  const { url, method } = req;
 
-const server = createServer(async (req, res) => {
-  const url = req.url ?? '/';
-  const method = req.method;
+  if (url === '/health') return send(res, 200, { ok: true });
 
-  if (method === 'GET' && url === '/health') return send(res, 200, { ok: true });
-
-  // test-only endpoint to create users with some coins
+  // only for tests
   if (method === 'POST' && url === '/test/users') {
-    const body = await readBody(req);
+    const { coins = 0 } = await readBody(req);
     const id = randomUUID();
-    const user: User = { id, email: `qa+${id}@test.com`, password: 'Test1234!', coins: body.coins ?? 0, steps: {}, converted: {} };
+    const user = { id, email: `qa+${id}@test.com`, password: 'Test1234!', coins, steps: {}, converted: {} };
     users.set(id, user);
     return send(res, 201, { id, email: user.email, password: user.password });
   }
 
   if (method === 'POST' && url === '/auth/login') {
     const { email, password } = await readBody(req);
-    if (!email || !password) return send(res, 400, error('MISSING_FIELDS'));
     const user = [...users.values()].find((u) => u.email === email && u.password === password);
-    if (!user) return send(res, 401, error('INVALID_CREDENTIALS'));
+    if (!user) return send(res, 401, { error: 'INVALID_CREDENTIALS' });
     const token = randomUUID();
     tokens.set(token, user.id);
     return send(res, 200, { token, userId: user.id });
   }
 
-  const user = getUser(req);
-  if (!user) return send(res, 401, error('UNAUTHORIZED'));
+  const token = req.headers.authorization?.replace('Bearer ', '') ?? '';
+  const user = users.get(tokens.get(token) ?? '');
+  if (!user) return send(res, 401, { error: 'UNAUTHORIZED' });
 
-  const balanceMatch = url.match(/^\/users\/(.+)\/balance$/);
-  if (method === 'GET' && balanceMatch) {
-    // 404 instead of 403 so we don't confirm the other user exists
-    if (balanceMatch[1] !== user.id) return send(res, 404, error('NOT_FOUND'));
+  const balance = url?.match(/^\/users\/(.+)\/balance$/);
+  if (method === 'GET' && balance) {
+    // 404 and not 403, so we don't leak that the user exists
+    if (balance[1] !== user.id) return send(res, 404, { error: 'NOT_FOUND' });
     return send(res, 200, { coins: user.coins });
   }
 
   if (method === 'POST' && url === '/steps/sync') {
     const { date, steps } = await readBody(req);
-    if (!Number.isInteger(steps) || steps < 0 || steps > 100_000) return send(res, 422, error('INVALID_STEPS'));
+    if (!Number.isInteger(steps) || steps < 0) return send(res, 422, { error: 'INVALID_STEPS' });
     user.steps[date] = Math.max(user.steps[date] ?? 0, steps);
     return send(res, 200, { date, steps: user.steps[date] });
   }
 
   if (method === 'POST' && url === '/steps/convert') {
     const { date } = await readBody(req);
-    if (date !== today()) return send(res, 422, error('STEPS_EXPIRED'));
+    if (date !== today()) return send(res, 422, { error: 'STEPS_EXPIRED' });
     const total = Math.min(user.steps[date] ?? 0, DAILY_LIMIT);
-    const already = user.converted[date] ?? 0;
-    const coins = Math.floor(total / STEPS_PER_COIN) - Math.floor(already / STEPS_PER_COIN);
+    const coins = Math.floor(total / 100) - Math.floor((user.converted[date] ?? 0) / 100);
     user.converted[date] = total;
     user.coins += coins;
     return send(res, 200, { coinsEarned: coins, balance: user.coins });
@@ -99,20 +84,17 @@ const server = createServer(async (req, res) => {
 
   if (method === 'GET' && url === '/rewards') return send(res, 200, rewards);
 
-  const redeemMatch = url.match(/^\/rewards\/(.+)\/redeem$/);
-  if (method === 'POST' && redeemMatch) {
-    const reward = rewards.find((r) => r.id === redeemMatch[1]);
-    if (!reward) return send(res, 404, error('NOT_FOUND'));
+  const redeem = url?.match(/^\/rewards\/(.+)\/redeem$/);
+  const reward = redeem && rewards.find((r) => r.id === redeem[1]);
+  if (method === 'POST' && reward) {
     const key = `${user.id}:${req.headers['idempotency-key']}`;
     if (redemptions.has(key)) return send(res, 200, redemptions.get(key));
-    if (user.coins < reward.cost) return send(res, 422, error('NOT_ENOUGH_COINS'));
+    if (user.coins < reward.cost) return send(res, 422, { error: 'NOT_ENOUGH_COINS' });
     user.coins -= reward.cost;
     const result = { rewardId: reward.id, balance: user.coins };
     redemptions.set(key, result);
     return send(res, 201, result);
   }
 
-  send(res, 404, error('NOT_FOUND'));
-});
-
-server.listen(PORT, () => console.log(`Mock API on http://localhost:${PORT}`));
+  send(res, 404, { error: 'NOT_FOUND' });
+}).listen(PORT, () => console.log(`Mock API on http://localhost:${PORT}`));

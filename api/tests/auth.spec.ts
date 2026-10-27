@@ -1,8 +1,11 @@
+// Login and access to user data
+
 import { test, expect } from '@playwright/test';
 import { createUser } from '../helpers';
 import { loginSchema } from '../schemas';
 
-test('login works with valid credentials @smoke', async ({ request }) => {
+// should return a token
+test('login with valid credentials @smoke', async ({ request }) => {
   const user = await createUser(request);
 
   const res = await request.post('/auth/login', { data: { email: user.email, password: user.password } });
@@ -11,7 +14,8 @@ test('login works with valid credentials @smoke', async ({ request }) => {
   loginSchema.parse(await res.json());
 });
 
-test('login fails with wrong password', async ({ request }) => {
+// right email, wrong password
+test('wrong password returns 401', async ({ request }) => {
   const user = await createUser(request);
 
   const res = await request.post('/auth/login', { data: { email: user.email, password: 'wrong' } });
@@ -19,7 +23,8 @@ test('login fails with wrong password', async ({ request }) => {
   expect(res.status()).toBe(401);
 });
 
-test('balance needs a token', async ({ request }) => {
+// no token
+test('balance without token returns 401', async ({ request }) => {
   const user = await createUser(request);
 
   const res = await request.get(`/users/${user.id}/balance`);
@@ -27,7 +32,8 @@ test('balance needs a token', async ({ request }) => {
   expect(res.status()).toBe(401);
 });
 
-test("a user can't see another user's balance", async ({ request }) => {
+// bob asks for alice's balance
+test("can't see another user's balance", async ({ request }) => {
   const alice = await createUser(request, 5000);
   const bob = await createUser(request);
 

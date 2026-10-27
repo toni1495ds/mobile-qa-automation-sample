@@ -1,3 +1,5 @@
+# Runs the API tests on every PR and push to main
+
 name: Tests
 
 on:
@@ -15,14 +17,14 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npx playwright test
+      - run: npm run test:api
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: api-report
           path: playwright-report/
 
-  # Needs the app build (app.apk). Commented out until we have it.
+  # needs an app build (app.apk)
   # mobile:
   #   runs-on: ubuntu-latest
   #   steps:

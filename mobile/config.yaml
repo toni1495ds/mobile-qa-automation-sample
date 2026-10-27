@@ -1,2 +1,3 @@
+# Maestro runs only the smoke flows
 flows:
   - "flows/*_smoke.yaml"

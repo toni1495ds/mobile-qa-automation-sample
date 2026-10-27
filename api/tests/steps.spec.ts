@@ -1,8 +1,11 @@
+// Syncing steps and converting them to coins
+
 import { test, expect } from '@playwright/test';
 import { addSteps, convertSteps, createUser, getCoins, yesterday } from '../helpers';
 import { convertSchema } from '../schemas';
 
-test('10,000 steps converts to 100 coins @smoke', async ({ request }) => {
+// 100 steps = 1 coin
+test('10k steps give 100 coins @smoke', async ({ request }) => {
   const user = await createUser(request);
   await addSteps(request, user, 10_000);
 
@@ -13,16 +16,19 @@ test('10,000 steps converts to 100 coins @smoke', async ({ request }) => {
   expect(await getCoins(request, user)).toBe(100);
 });
 
-test('converting twice does not give coins twice', async ({ request }) => {
+// second time should give 0
+test('convert twice, get paid once', async ({ request }) => {
   const user = await createUser(request);
   await addSteps(request, user, 5_000);
 
   await convertSteps(request, user);
-  await convertSteps(request, user);
+  const second = await convertSteps(request, user);
 
+  expect((await second.json()).coinsEarned).toBe(0);
   expect(await getCoins(request, user)).toBe(50);
 });
 
+// only today's steps count
 test("yesterday's steps can't be converted", async ({ request }) => {
   const user = await createUser(request);
   await addSteps(request, user, 8_000, yesterday());
@@ -33,7 +39,8 @@ test("yesterday's steps can't be converted", async ({ request }) => {
   expect(await getCoins(request, user)).toBe(0);
 });
 
-test('only 20,000 steps per day are converted', async ({ request }) => {
+// 30k steps but only 20k count
+test('max 20k steps a day', async ({ request }) => {
   const user = await createUser(request);
   await addSteps(request, user, 30_000);
 
@@ -42,6 +49,7 @@ test('only 20,000 steps per day are converted', async ({ request }) => {
   expect(await getCoins(request, user)).toBe(200);
 });
 
+// bad input
 test('negative steps are rejected', async ({ request }) => {
   const user = await createUser(request);
 

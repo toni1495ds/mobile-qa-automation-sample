@@ -1,4 +1,4 @@
-// Adds steps for today to the user created by create_user.js
+// Adds today's steps to the test user (run create_user.js first)
 const login = http.post(`${API_URL}/auth/login`, {
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ email: output.user.email, password: output.user.password }),

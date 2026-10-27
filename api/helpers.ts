@@ -1,3 +1,5 @@
+// Shared helpers to create users and call the API from the tests
+
 import { APIRequestContext, expect } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
 
@@ -11,7 +13,7 @@ export const yesterday = () => {
   return d.toISOString().slice(0, 10);
 };
 
-// Creates a new user for each test so tests don't share data
+// new user per test, so tests don't share data
 export async function createUser(request: APIRequestContext, coins = 0): Promise<User> {
   const res = await request.post('/test/users', { data: { coins } });
   expect(res.status()).toBe(201);
@@ -29,14 +31,15 @@ export async function getCoins(request: APIRequestContext, user: User) {
 }
 
 export async function addSteps(request: APIRequestContext, user: User, steps: number, date = today()) {
-  await request.post('/steps/sync', { headers: user.headers, data: { date, steps } });
+  const res = await request.post('/steps/sync', { headers: user.headers, data: { date, steps } });
+  expect(res.status()).toBe(200);
 }
 
-export async function convertSteps(request: APIRequestContext, user: User, date = today()) {
+export function convertSteps(request: APIRequestContext, user: User, date = today()) {
   return request.post('/steps/convert', { headers: user.headers, data: { date } });
 }
 
-export async function redeem(request: APIRequestContext, user: User, rewardId: string, key: string = randomUUID()) {
+export function redeem(request: APIRequestContext, user: User, rewardId: string, key: string = randomUUID()) {
   return request.post(`/rewards/${rewardId}/redeem`, {
     headers: { ...user.headers, 'Idempotency-Key': key },
   });

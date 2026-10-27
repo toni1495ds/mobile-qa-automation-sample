@@ -1,5 +1,5 @@
-# Steps are added through the API (nobody walks during a test),
-# then converted from the home screen.
+# Convert steps from the home screen.
+# Steps are added with the API, nobody walks during a test
 appId: com.macadamapp
 tags:
   - smoke

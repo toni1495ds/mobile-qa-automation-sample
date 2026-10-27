@@ -1,3 +1,4 @@
+# Login with a new user and check the home screen
 appId: com.macadamapp
 tags:
   - smoke
