@@ -1,52 +1,31 @@
 # Macadam QA automation sample
 
-A small example of how I would start the test automation for Macadam.
+This is a small example of how I would start the automation at Macadam.
 
-I don't have access to the app or the API, so:
+I don't have access to the app or the API, so I made a simple mock server to run the API tests. The rules (coins per steps, daily limit, etc.) are my guesses from using the app. The Maestro flows use testIDs that I invented, so they won't run until we have the real ones.
 
-- The **API tests** run against a small mock server (`mock-server/`) that I wrote following how the app works publicly (steps → coins, converting before midnight, daily step limit, gift cards). The numbers are my guesses.
-- The **Maestro flows** are written with `testID`s I made up. They would need the real IDs from the app to run.
+## The idea
 
-## Approach
+Start with a smoke of the main flows:
 
-I'd start with a **smoke suite** of the most important flows instead of trying to cover everything:
-
-1. Log in and see today's steps and coins
+1. Login
 2. Convert steps into coins
 3. Redeem a reward
 
-The happy path goes in Maestro (real app, slower), and the edge cases go in API tests (faster and more stable): converting twice, expired steps, the daily limit, not enough coins, retried requests and users seeing other users' data.
+The happy path is tested with Maestro on the app, and the edge cases with API tests because they are faster and more stable (converting twice, old steps, daily limit, not enough coins, retries, seeing another user's data).
 
-**Why Maestro:** simple YAML, automatic waits so tests are less flaky, and manual QA can also write flows. Detox would be an option if we need more speed later.
+I chose Maestro because it's easy to write and maintain, and Playwright for the API because the backend is in TypeScript, so devs can also add tests.
 
-**Why Playwright for the API:** the backend is TypeScript, so developers can read and add tests. I use Zod to check the response format.
-
-## Structure
-
-```
-api/
-  tests/          auth, steps, rewards
-  helpers.ts      create users, add steps, redeem...
-  schemas.ts      expected response formats (Zod)
-mobile/
-  flows/          3 smoke flows + reusable login
-  scripts/        create test data through the API
-mock-server/      fake backend for running the API tests locally
-.github/workflows/tests.yml
-```
-
-## Run
+## How to run
 
 ```bash
 npm install
-npm run test:api     # all API tests
-npm run test:smoke   # only smoke
-npm run report       # HTML report
+npm run test:api
+npm run test:smoke
+npm run report
 ```
 
-Against a real environment: `BASE_URL=https://staging... npm run test:api`
-
-Maestro (with the app installed on an emulator):
+For Maestro you need the app installed in an emulator:
 
 ```bash
 npm run mock
@@ -55,11 +34,10 @@ maestro test -e API_URL=http://10.0.2.2:3333 mobile/
 
 ## CI
 
-GitHub Actions runs the API tests on every pull request. The Maestro job is ready but commented out until there's an app build to install.
+The API tests run on every PR with GitHub Actions. The Maestro job is commented until we have an app build.
 
 ## Next steps
 
-- Agree on `testID`s with the developers
-- Run the smoke flows on Android in CI, iOS before releases
-- Add regression: permissions, offline, Perfect Week, time zones around midnight
-- Track flaky tests and how long the pipeline takes
+- Agree testIDs with the devs
+- Run Maestro in CI (Android first, iOS before releases)
+- Add more regression: permissions, offline, Perfect Week, time zones
