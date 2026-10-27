@@ -1,0 +1,2 @@
+flows:
+  - "flows/*_smoke.yaml"

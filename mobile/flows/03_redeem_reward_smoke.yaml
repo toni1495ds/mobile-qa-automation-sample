@@ -1,0 +1,32 @@
+appId: com.macadamapp
+tags:
+  - smoke
+---
+- runScript:
+    file: ../scripts/create_user.js
+    env:
+      COINS: 15000
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+- runFlow:
+    file: login.yaml
+    env:
+      EMAIL: ${output.user.email}
+      PASSWORD: ${output.user.password}
+- tapOn:
+    id: "rewards-tab"
+- tapOn:
+    id: "reward-giftcard_5"
+- tapOn:
+    id: "redeem-button"
+- tapOn:
+    id: "confirm-button"
+- assertVisible:
+    id: "redeem-success"
+- tapOn:
+    id: "close-button"
+- assertVisible:
+    id: "coins-balance"
+    text: "5[.,]?000"

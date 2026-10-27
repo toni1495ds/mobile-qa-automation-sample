@@ -1,0 +1,27 @@
+# Steps are added through the API (nobody walks during a test),
+# then converted from the home screen.
+appId: com.macadamapp
+tags:
+  - smoke
+---
+- runScript: ../scripts/create_user.js
+- runScript:
+    file: ../scripts/add_steps.js
+    env:
+      STEPS: 10000
+- launchApp:
+    clearState: true
+    permissions:
+      all: allow
+- runFlow:
+    file: login.yaml
+    env:
+      EMAIL: ${output.user.email}
+      PASSWORD: ${output.user.password}
+- tapOn:
+    id: "convert-steps-button"
+- extendedWaitUntil:
+    visible:
+      id: "coins-balance"
+      text: "100"
+    timeout: 10000
